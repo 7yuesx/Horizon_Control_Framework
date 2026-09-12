@@ -71,15 +71,15 @@ const osThreadAttr_t Command_attributes = {
 osThreadId_t Task01Handle;
 const osThreadAttr_t Task01_attributes = {
   .name = "Task01",
-  .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityNormal1,
+  .stack_size = 1024 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for Task02 */
 osThreadId_t Task02Handle;
 const osThreadAttr_t Task02_attributes = {
   .name = "Task02",
-  .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityNormal2,
+  .stack_size = 1024 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 
 /* Private function prototypes -----------------------------------------------*/

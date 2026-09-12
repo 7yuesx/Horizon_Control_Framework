@@ -58,6 +58,6 @@ void BM_Send_IQ(hcan_t *hcan, uint16_t stdid ,float IQ, uint8_t ID);
 void BM_set_ID(hcan_t *hcan, uint8_t ID, uint8_t new_ID);
 void BM_save_flash(hcan_t* hcan);
 void BM_save_zeroPoint(hcan_t *hcan);
-
+void BM_save_zeroPoint_User(BM_MOTOR_DATA_Typedef *DATA,float zeroPoint);
 
 #endif // !__BM_MOTOR_H__

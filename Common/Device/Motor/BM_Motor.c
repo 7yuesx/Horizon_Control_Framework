@@ -231,4 +231,8 @@ void BM_disable(hcan_t *hcan, uint8_t ID)
     CAN_Send_Msg(hcan, stdid, TxData, 8);
 }
 
+void BM_save_zeroPoint_User(BM_MOTOR_DATA_Typedef *DATA,float zeroPoint)
+{
+    DATA->pos_init_rad=zeroPoint;
+}
 // void BM_

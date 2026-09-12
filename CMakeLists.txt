@@ -15,7 +15,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # ACTIVE_APP:   对应板卡 App/ 下的机器人目录名
 set(ACTIVE_BOARD "${TOOLCHAIN_BOARD}")
 if(NOT DEFINED ACTIVE_APP)
-    set(ACTIVE_APP "1_Catapult_Hero")
+#    set(ACTIVE_APP "1_Catapult_Hero")
+    set(ACTIVE_APP "5_Balance_Robot_Chassis")
 endif()
 
 # ---- 校验 ACTIVE_BOARD:板卡目录不存在直接报错 ----
