@@ -18,9 +18,12 @@
 
 typedef struct {
     float P[100];
+    float Q[10];
     float K[40];
+    float K_T[40];
     float A[100];
     float B[40];
+    float B_T[40];
     float S[16];
     float AmBK_T[100];
     float s[prediction_num+1][10];
@@ -34,22 +37,24 @@ typedef struct {
     float temp1[prediction_num][4];
     float temp2[4];
     float temp3[100];
-    float temp4[40];
+    float temp4[10];
     float temp5[10];
-    float temp6[40];
+    float temp6[10];
     float temp7[4];
     float temp8[4];
     float theta_leg_l;
     float theta_leg_r;
     arm_matrix_instance_f32 P_matrix;
     arm_matrix_instance_f32 K_matrix;
+    arm_matrix_instance_f32 K_T_matrix;
     arm_matrix_instance_f32 A_matrix;
     arm_matrix_instance_f32 B_matrix;
+    arm_matrix_instance_f32 B_T_matrix;
     arm_matrix_instance_f32 S_matrix;
     arm_matrix_instance_f32 AmBK_T_matrix;
     arm_matrix_instance_f32 temp3_matrix;
-    arm_matrix_instance_f32 temp4_matrix;
-    arm_matrix_instance_f32 temp6_matrix;
+    // arm_matrix_instance_f32 temp4_matrix;
+    // arm_matrix_instance_f32 temp6_matrix;
 
 }MPC_t;
 typedef struct {

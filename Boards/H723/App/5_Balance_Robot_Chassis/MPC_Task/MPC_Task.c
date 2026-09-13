@@ -28,6 +28,16 @@ void Coeffs_Init(MPC_coeffs_t* mpc_coeffs) {
     memcpy(mpc_coeffs->theta_leg_r_coeffs,theta_leg_r_coeffs,sizeof(theta_leg_r_coeffs));
 }
 void Mpc_Init(MPC_coeffs_t* mpc_coeffs,MPC_t* mpc) {
+    mpc->Q[0]=10;
+    mpc->Q[1]=1;
+    mpc->Q[2]=5000;
+    mpc->Q[3]=4000;
+    mpc->Q[4]=4000;
+    mpc->Q[5]=1;
+    mpc->Q[6]=1;
+    mpc->Q[7]=1;
+    mpc->Q[8]=1;
+    mpc->Q[9]=1;
 
     arm_mat_init_f32(&mpc_coeffs->K_coeffs_matrix,40,10,mpc_coeffs->K_coeffs);
     arm_mat_init_f32(&mpc_coeffs->P_coeffs_matrix,100,10,mpc_coeffs->P_coeffs);
@@ -44,15 +54,15 @@ void Mpc_Init(MPC_coeffs_t* mpc_coeffs,MPC_t* mpc) {
     arm_mat_init_f32(&mpc->AmBK_T_matrix,10,10,mpc->AmBK_T);
 
     arm_mat_init_f32(&mpc->temp3_matrix,10,10,mpc->temp3);
-    arm_mat_init_f32(&mpc->temp4_matrix,4,10,mpc->temp4);
-    arm_mat_init_f32(&mpc->temp6_matrix,10,4,mpc->temp6);
+    arm_mat_init_f32(&mpc->K_T_matrix,10,4,mpc->K_T);
+    arm_mat_init_f32(&mpc->B_T_matrix,4,10,mpc->B_T);
 
     memset(mpc->e, 0, sizeof(mpc->e));
     memset(mpc->u, 0, sizeof(mpc->u));
     memset(mpc->z, 0, sizeof(mpc->z));
     memset(mpc->lambda, 0, sizeof(mpc->lambda));
     memset(mpc_coeffs->input, 0, sizeof(mpc_coeffs->input));
-    mpc->rho=1;
+    mpc->rho=0.5f;
 }
 
 void Update_Matrix_Simplify(MPC_coeffs_t* mpc_coeffs, MPC_t* mpc,const float x,const float y) {
@@ -82,6 +92,9 @@ void Update_Matrix_Simplify(MPC_coeffs_t* mpc_coeffs, MPC_t* mpc,const float x,c
     arm_mat_vec_mult_f32(&mpc_coeffs->S_coeffs_matrix,mpc_coeffs->input,mpc->S_matrix.pData);
     arm_mat_vec_mult_f32(&mpc_coeffs->AmBK_T_coeffs_matrix,mpc_coeffs->input,mpc->AmBK_T_matrix.pData);
 
+    arm_mat_trans_f32(&mpc->K_matrix,&mpc->K_T_matrix);
+    arm_mat_trans_f32(&mpc->B_matrix,&mpc->B_T_matrix);
+
     float theta_leg_l = 0;
     float theta_leg_r = 0;
     for (int i=0;i<10;i++) {
@@ -106,7 +119,8 @@ void Get_State_And_Target(float *measure, float *ref, const float dt) {
 
     ref[0] += chassis_cmd.target_vx* dt;;
     ref[1] += chassis_cmd.target_vw* dt;
-    // ref[1] = measure[1]+normalize_to_pi(ref[1]-measure[1]);
+    ref[1] = normalize_to_pi(ref[1]);
+    ref[1] = measure[1]+normalize_to_pi(ref[1]-measure[1]);
     ref[2] = 0;
     ref[3] = chassis_ctrl.mpc.theta_leg_l;
     ref[4] = chassis_ctrl.mpc.theta_leg_r;
@@ -126,34 +140,39 @@ void MPC_Admm(MPC_t* mpc) {
     for(int i=0;i<prediction_num;i++) {
         arm_mat_vec_mult_f32(&mpc->K_matrix,mpc->e[i],mpc->temp2);
 
-        arm_clip_f32(&mpc->temp2[0],&mpc->u[i][0],-40,40,2);
-        arm_clip_f32(&mpc->temp2[2],&mpc->u[i][2],-6,6,2);
+        arm_clip_f32(&mpc->temp2[0],&mpc->z[i][0],-40,40,2);
+        arm_clip_f32(&mpc->temp2[2],&mpc->z[i][2],-6,6,2);
 
-        arm_mat_vec_mult_f32(&mpc->B_matrix,mpc->u[i],mpc->temp5);
+        arm_mat_vec_mult_f32(&mpc->B_matrix,mpc->z[i],mpc->temp5);
         arm_mat_vec_mult_f32(&mpc->A_matrix,mpc->e[i],mpc->e[i+1]);
-        arm_add_f32(mpc->temp5,mpc->e[i],mpc->e[i+1],10);
+        arm_add_f32(mpc->temp5,mpc->e[i+1],mpc->e[i+1],10);
+
     }
     for(int i=0;i<iteration_count;i++) {
         arm_mat_vec_mult_f32(&mpc->P_matrix,mpc->e[prediction_num],mpc->s[prediction_num]);
         for(int j=0;j<prediction_num;j++) {
-            arm_mat_vec_mult_f32(&mpc->AmBK_T_matrix,mpc->s[prediction_num-j],mpc->s[prediction_num-1-j]);
+            arm_mat_vec_mult_f32(&mpc->AmBK_T_matrix,mpc->s[prediction_num-j],mpc->temp4);
+            arm_mult_f32(mpc->Q, mpc->e[prediction_num-1-j], mpc->temp5, 10);
+            arm_add_f32(mpc->temp4,mpc->temp5,mpc->temp6,10);
+
             arm_scale_f32(mpc->z[prediction_num-1-j],mpc->rho,mpc->temp2,4);
             arm_sub_f32(mpc->lambda[prediction_num-1-j],mpc->temp2,mpc->temp1[prediction_num-1-j],4);
-            arm_mat_trans_f32(&mpc->K_matrix,&mpc->temp4_matrix);
-            arm_mat_vec_mult_f32(&mpc->temp4_matrix,mpc->temp1[prediction_num-1-j],mpc->temp5);
-            arm_add_f32(mpc->temp5,mpc->s[prediction_num-1-j],mpc->s[prediction_num-1-j],10);
+
+            arm_mat_vec_mult_f32(&mpc->K_T_matrix,mpc->temp1[prediction_num-1-j],mpc->temp5);
+            arm_add_f32(mpc->temp5,mpc->temp6,mpc->s[prediction_num-1-j],10);
         }
         for(int j=0;j<prediction_num;j++) {
-            arm_mat_vec_mult_f32(&mpc->K_matrix,mpc->e[j],mpc->u[j]);
-            arm_mat_trans_f32(&mpc->B_matrix,&mpc->temp6_matrix);
-            arm_mat_vec_mult_f32(&mpc->temp6_matrix,mpc->s[j],mpc->temp2);
+            arm_mat_vec_mult_f32(&mpc->K_matrix,mpc->e[j],mpc->temp8);
+
+            arm_mat_vec_mult_f32(&mpc->B_T_matrix,mpc->s[j+1],mpc->temp2);
             arm_add_f32(mpc->temp2,mpc->temp1[j],mpc->temp7,4);
             arm_mat_vec_mult_f32(&mpc->S_matrix,mpc->temp7,mpc->temp2);
-            arm_sub_f32(mpc->u[j],mpc->temp2,mpc->u[j],4);
+            arm_sub_f32(mpc->temp8,mpc->temp2,mpc->u[j],4);
 
             arm_mat_vec_mult_f32(&mpc->B_matrix,mpc->u[j],mpc->temp5);
             arm_mat_vec_mult_f32(&mpc->A_matrix,mpc->e[j],mpc->e[j+1]);
             arm_add_f32(mpc->e[j+1],mpc->temp5,mpc->e[j+1],10);
+
 
             arm_scale_f32(mpc->lambda[j],(1.0f/mpc->rho),mpc->temp2,4);
             arm_add_f32(mpc->u[j],mpc->temp2,mpc->temp7,4);
